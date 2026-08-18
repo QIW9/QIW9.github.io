@@ -140,6 +140,52 @@
       .filter(Boolean);
   }
 
+  function insertAtCursor(ta, text) {
+    const start = ta.selectionStart == null ? ta.value.length : ta.selectionStart;
+    const end = ta.selectionEnd == null ? ta.value.length : ta.selectionEnd;
+    const before = ta.value.slice(0, start);
+    const after = ta.value.slice(end);
+    const pre = before && !before.endsWith("\n") ? "\n" : "";
+    const post = after && !after.startsWith("\n") ? "\n" : "";
+    ta.value = before + pre + text + post + after;
+    const pos = before.length + pre.length + text.length + post.length;
+    ta.focus();
+    ta.selectionStart = ta.selectionEnd = pos;
+  }
+
+  function sanitizeName(name) {
+    return (
+      name
+        .replace(/[\\/]/g, "-")
+        .replace(/[^\p{L}\p{N}._\-]+/gu, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "") || "file"
+    );
+  }
+
+  function toMarkdown(name) {
+    const url = "/assets/uploads/" + encodeURIComponent(name);
+    if (/\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)$/i.test(name)) {
+      return "![" + name.replace(/\.[^.]+$/, "") + "](" + url + ")";
+    }
+    return "[" + name + "](" + url + ")";
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / 1024 / 1024).toFixed(1) + " MB";
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result.split(",")[1]);
+      fr.onerror = reject;
+      fr.readAsDataURL(file);
+    });
+  }
+
   function buildPost() {
     const title = $("title").value.trim();
     const date = $("date").value;
@@ -259,6 +305,168 @@
       $("post-status").textContent = "加载失败：" + e.message;
     } finally {
       $("btn-refresh").disabled = false;
+    }
+  }
+
+  async function loadFiles() {
+    const s = getSettings();
+    if (!s.owner || !s.repo || !s.token) return;
+    $("btn-refresh-files").disabled = true;
+    $("file-status").hidden = false;
+    $("file-status").textContent = "加载中……";
+    try {
+      let items = [];
+      try {
+        items = await gh(
+          "/repos/" + s.owner + "/" + s.repo + "/contents/assets/uploads?ref=" + encodeURIComponent(s.branch || "master")
+        );
+      } catch (e) {
+        if (e.message.indexOf("404") !== -1) {
+          items = [];
+        } else {
+          throw e;
+        }
+      }
+      renderFileList(items);
+      $("file-status").hidden = true;
+    } catch (e) {
+      $("file-status").textContent = "加载失败：" + e.message;
+    } finally {
+      $("btn-refresh-files").disabled = false;
+    }
+  }
+
+  function renderFileList(items) {
+    const list = $("file-list");
+    if (!items.length) {
+      list.innerHTML = '<p class="muted">还没有上传过文件。</p>';
+      return;
+    }
+    list.innerHTML = "";
+    items
+      .slice()
+      .sort((a, b) => b.name.localeCompare(a.name))
+      .forEach((it) => {
+        const row = document.createElement("div");
+        row.className = "post-row";
+
+        const left = document.createElement("div");
+        left.style.minWidth = "0";
+        const name = document.createElement("div");
+        name.className = "file-name";
+        name.textContent = it.name;
+        const size = document.createElement("div");
+        size.className = "file-size";
+        size.textContent = it.size ? formatSize(it.size) : "";
+        left.appendChild(name);
+        left.appendChild(size);
+
+        const buttons = document.createElement("div");
+        buttons.className = "post-buttons";
+        const insertBtn = document.createElement("button");
+        insertBtn.textContent = "插入";
+        insertBtn.addEventListener("click", () => {
+          insertAtCursor($("content"), toMarkdown(it.name));
+          showStatus("已插入「" + it.name + "」的链接", "success");
+        });
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "删除";
+        delBtn.className = "danger";
+        delBtn.addEventListener("click", () => deleteFile(it));
+        buttons.appendChild(insertBtn);
+        buttons.appendChild(delBtn);
+
+        row.appendChild(left);
+        row.appendChild(buttons);
+        list.appendChild(row);
+      });
+  }
+
+  async function uploadFile(file) {
+    const s = getSettings();
+    if (!s.owner || !s.repo || !s.token) {
+      showStatus("请先填写仓库信息并保存令牌", "error");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      showStatus("文件太大，建议 8MB 以内", "error");
+      return;
+    }
+    const name = sanitizeName(file.name);
+    const path = "assets/uploads/" + name;
+    const branch = s.branch || "master";
+    const input = $("file-input");
+    input.disabled = true;
+    try {
+      showStatus("正在上传 " + name + "……", "");
+      const b64 = await fileToBase64(file);
+      let sha = null;
+      try {
+        const existing = await gh(
+          "/repos/" + s.owner + "/" + s.repo + "/contents/" + encPath(path) + "?ref=" + encodeURIComponent(branch)
+        );
+        sha = existing.sha;
+      } catch (e) {
+        /* 404：新文件 */
+      }
+      const body = {
+        message: sha ? "Update: " + name : "Upload: " + name,
+        content: b64,
+        branch: branch,
+      };
+      if (sha) body.sha = sha;
+      await gh(
+        "/repos/" + s.owner + "/" + s.repo + "/contents/" + encPath(path),
+        { method: "PUT", body: JSON.stringify(body) }
+      );
+      insertAtCursor($("content"), toMarkdown(name));
+      showStatus("已上传「" + name + "」并插入正文，重新发布后即可显示", "success");
+      loadFiles();
+    } catch (e) {
+      showStatus("上传失败：" + e.message, "error");
+    } finally {
+      input.disabled = false;
+    }
+  }
+
+  async function importMarkdown(file) {
+    const text = await file.text();
+    const fm = parseFrontMatter(text);
+    resetEditor();
+    if (fm && (fm.title || fm.body)) {
+      $("title").value = fm.title || "";
+      $("date").value = fm.date || today();
+      $("slug").value = file.name.replace(/\.md$/i, "").replace(/^\d{4}-\d{2}-\d{2}-/, "");
+      $("categories").value = (fm.categories || []).join(", ");
+      $("tags").value = (fm.tags || []).join(", ");
+      $("description").value = fm.description || "";
+      $("content").value = fm.body || "";
+      showStatus("已导入「" + (fm.title || file.name) + "」，检查后点击发布", "success");
+    } else {
+      $("content").value = text;
+      showStatus("文件内容已填入正文", "success");
+    }
+  }
+
+  async function deleteFile(item) {
+    const s = getSettings();
+    if (!confirm("确定删除文件「" + item.name + "」吗？")) return;
+    try {
+      await gh(
+        "/repos/" + s.owner + "/" + s.repo + "/contents/" + encPath(item.path),
+        {
+          method: "DELETE",
+          body: JSON.stringify({
+            message: "Delete: " + item.name,
+            sha: item.sha,
+            branch: s.branch || "master",
+          }),
+        }
+      );
+      showStatus("已删除「" + item.name + "」", "success");
+      loadFiles();
+    } catch (e) {
+      showStatus("删除失败：" + e.message, "error");
     }
   }
 
@@ -400,8 +608,22 @@
     $("btn-refresh").addEventListener("click", loadPosts);
     $("btn-publish").addEventListener("click", publish);
     $("btn-cancel").addEventListener("click", resetEditor);
+    $("btn-refresh-files").addEventListener("click", loadFiles);
+    $("file-input").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      if (/\.md$/i.test(file.name)) {
+        importMarkdown(file);
+      } else {
+        uploadFile(file);
+      }
+    });
 
-    if (s.token) loadPosts();
+    if (s.token) {
+      loadPosts();
+      loadFiles();
+    }
   }
 
   document.addEventListener("DOMContentLoaded", init);

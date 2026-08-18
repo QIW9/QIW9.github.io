@@ -52,6 +52,12 @@ tags: [jekyll, 博客]
 
 发布后 GitHub API 会把 Markdown 文件直接提交到 `_posts` 目录，GitHub Pages 约 1 分钟后自动构建更新。
 
+后台还支持：
+
+- 上传图片/附件：选择文件后自动上传到 `assets/uploads/`，并把 Markdown 链接插入正文（图片为 `![](/assets/uploads/...)`，其他文件为链接）。发布文章后即可在页面中显示。
+- 导入文章草稿：直接选择一个 `.md` 文件，自动解析 front matter 填入表单，检查后即可发布。
+- 已上传文件列表：可随时「插入」链接或「删除」文件。
+
 > 令牌只保存在你当前浏览器的 localStorage 中，直接调用 GitHub 官方 API，不经过任何第三方服务器。请勿在公共电脑上使用。
 
 ## 本地预览

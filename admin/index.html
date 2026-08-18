@@ -42,6 +42,8 @@
         <label>标签（逗号分隔，如：jekyll, 博客）<input id="tags" placeholder="jekyll, 博客" autocomplete="off"></label>
       </div>
       <label>摘要（可选，用于页面描述）<input id="description" autocomplete="off"></label>
+      <label>上传图片 / 附件<input id="file-input" type="file"></label>
+      <p class="hint">选择图片会自动上传到 <code>assets/uploads/</code> 并把 Markdown 链接插入正文；选择 <code>.md</code> 文件会导入为文章草稿。单个文件建议 8MB 以内。</p>
       <label>正文（Markdown）*
         <textarea id="content" rows="14" placeholder="支持完整 Markdown：标题、代码块、引用、表格、图片……"></textarea>
       </label>
@@ -56,6 +58,12 @@
       <h2>已发布文章 <button id="btn-refresh" class="small">刷新</button></h2>
       <p class="muted" id="post-status" hidden></p>
       <div id="post-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>已上传文件 <button id="btn-refresh-files" class="small">刷新</button></h2>
+      <p class="muted" id="file-status" hidden></p>
+      <div id="file-list"></div>
     </section>
   </main>
 
