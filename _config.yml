@@ -1,0 +1,12 @@
+title: QIW9
+description: 一个极简博客
+url: "https://QIW9.github.io"
+baseurl: ""
+permalink: /:year/:month/:day/:title/
+markdown: kramdown
+kramdown:
+  input: GFM
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
