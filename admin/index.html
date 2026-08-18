@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文章管理 · QIW9</title>
+  <link rel="stylesheet" href="./admin.css">
+</head>
+<body>
+  <header class="admin-header">
+    <div class="admin-header-inner">
+      <a class="admin-brand" href="../">QIW9</a>
+      <span class="admin-sub">文章管理后台</span>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="card">
+      <h2>GitHub 连接</h2>
+      <div class="grid">
+        <label>仓库所有者<input id="owner" placeholder="QIW9" autocomplete="off"></label>
+        <label>仓库名<input id="repo" placeholder="QIW9.github.io" autocomplete="off"></label>
+        <label>分支<input id="branch" value="master" autocomplete="off"></label>
+      </div>
+      <label>GitHub 令牌（Token）<input id="token" type="password" placeholder="github_pat_... 或 ghp_..." autocomplete="off"></label>
+      <p class="hint">令牌需要仓库 Contents 的读写权限（公开仓库用 public_repo 即可）。令牌只保存在当前浏览器本地，不会发送到任何其他服务器。</p>
+      <div class="actions">
+        <button id="btn-connect" class="primary">保存并加载文章</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 id="editor-title">发布文章</h2>
+      <p class="hint" id="edit-hint" hidden>编辑中：<code id="edit-path"></code>。修改日期或文件名时，请删除后重新发布。</p>
+      <div class="grid">
+        <label>标题 *<input id="title" placeholder="文章标题"></label>
+        <label>日期<input id="date" type="date"></label>
+      </div>
+      <label>文件名标识（slug，可留空自动从标题生成）<input id="slug" placeholder="my-first-post" autocomplete="off"></label>
+      <div class="grid">
+        <label>分类（逗号分隔，如：随笔, 技术）<input id="categories" placeholder="随笔, 技术" autocomplete="off"></label>
+        <label>标签（逗号分隔，如：jekyll, 博客）<input id="tags" placeholder="jekyll, 博客" autocomplete="off"></label>
+      </div>
+      <label>摘要（可选，用于页面描述）<input id="description" autocomplete="off"></label>
+      <label>正文（Markdown）*
+        <textarea id="content" rows="14" placeholder="支持完整 Markdown：标题、代码块、引用、表格、图片……"></textarea>
+      </label>
+      <div class="actions">
+        <button id="btn-publish" class="primary">发布文章</button>
+        <button id="btn-cancel" hidden>取消编辑</button>
+        <button id="btn-delete" class="danger" hidden>删除这篇文章</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>已发布文章 <button id="btn-refresh" class="small">刷新</button></h2>
+      <p class="muted" id="post-status" hidden></p>
+      <div id="post-list"></div>
+    </section>
+  </main>
+
+  <div id="status" hidden></div>
+  <script src="./admin.js"></script>
+</body>
+</html>
